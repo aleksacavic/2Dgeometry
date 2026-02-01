@@ -1,6 +1,8 @@
 // L-Wall (Cantilever Retaining Wall) Component
 // Geometry: inverted T-shape with stem and base
 
+import { VertexHandleManager } from './vertexHandle.js';
+
 export class LWall {
     constructor(coordSystem, elementsGroup, config = {}) {
         this.coordSystem = coordSystem;
@@ -30,7 +32,60 @@ export class LWall {
         this.onSelect = config.onSelect || (() => {});
         this.onUpdate = config.onUpdate || (() => {});
 
+        // Vertex editing
+        this.handleManager = new VertexHandleManager(coordSystem, elementsGroup);
+        this.vertexMode = false;  // Enable direct vertex manipulation
+
         this.render();
+    }
+
+    // Convert vertex drag to parameter updates
+    handleVertexDrag(index, pos, final) {
+        const points = this.getPolygonPoints();
+        const p = this.params;
+
+        // Map vertex indices to parameter changes
+        // Points: 0=toe-bottom, 1=heel-bottom, 2=heel-top, 3=stem-right-bottom,
+        //         4=stem-right-top, 5=stem-left-top, 6=stem-left-bottom, 7=toe-top
+        switch (index) {
+            case 0: // toe bottom-left (origin)
+                p.originX = pos.x;
+                p.originY = pos.y;
+                break;
+            case 1: // heel bottom-right
+                p.baseWidth = pos.x - p.originX;
+                break;
+            case 2: // heel top
+                p.baseThickness = pos.y - p.originY;
+                break;
+            case 4: // stem top-right
+                p.stemHeight = pos.y - p.originY - p.baseThickness;
+                p.stemThicknessTop = pos.x - p.originX - p.toeLength;
+                break;
+            case 5: // stem top-left
+                p.stemHeight = pos.y - p.originY - p.baseThickness;
+                p.toeLength = pos.x - p.originX;
+                break;
+            case 3: // stem bottom-right
+                p.stemThicknessBot = pos.x - p.originX - p.toeLength;
+                break;
+            case 6: // stem bottom-left / toe inner
+                p.toeLength = pos.x - p.originX;
+                break;
+        }
+
+        // Clamp values
+        p.baseWidth = Math.max(0.5, p.baseWidth);
+        p.baseThickness = Math.max(0.1, p.baseThickness);
+        p.stemHeight = Math.max(0.5, p.stemHeight);
+        p.stemThicknessBot = Math.max(0.1, p.stemThicknessBot);
+        p.stemThicknessTop = Math.max(0.1, p.stemThicknessTop);
+        p.toeLength = Math.max(0.1, Math.min(p.toeLength, p.baseWidth - p.stemThicknessBot - 0.1));
+
+        this.render();
+        if (final) {
+            this.onUpdate(this);
+        }
     }
 
     // Get the polygon points for the L-wall shape
@@ -104,6 +159,11 @@ export class LWall {
                 this.group.style('filter', 'none');
             });
 
+        // Setup vertex handles
+        this.handleManager.setVertices(points, (index, pos, final) => {
+            this.handleVertexDrag(index, pos, final);
+        });
+
         this.updateSelection();
     }
 
@@ -137,10 +197,15 @@ export class LWall {
     setSelected(selected) {
         this.selected = selected;
         this.updateSelection();
+        this.handleManager.setVisible(selected);
     }
 
     updateSelection() {
         this.group.classed('selected', this.selected);
+    }
+
+    getVertices() {
+        return this.getPolygonPoints();
     }
 
     updateParams(newParams) {
@@ -162,6 +227,7 @@ export class LWall {
     }
 
     destroy() {
+        this.handleManager.destroy();
         if (this.group) {
             this.group.remove();
         }

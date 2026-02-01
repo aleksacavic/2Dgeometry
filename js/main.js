@@ -6,6 +6,8 @@ import { LWall } from './components/lWall.js';
 import { BlockWall } from './components/blockWall.js';
 import { SoilWedge } from './components/soilWedge.js';
 import { DimensionLine, createVerticalDimension, createHorizontalDimension } from './components/dimensionLine.js';
+import { CustomPolygon, createLShape } from './components/customPolygon.js';
+import { DrawingTool } from './components/drawingTool.js';
 
 class RetainingWallApp {
     constructor() {
@@ -14,6 +16,7 @@ class RetainingWallApp {
         this.dimensions = [];
         this.coordSystem = null;
         this.svg = null;
+        this.drawingTool = null;
 
         // Layer groups (z-order)
         this.layers = {
@@ -30,6 +33,7 @@ class RetainingWallApp {
         this.createSvg();
         this.setupCoordinateSystem();
         this.setupLayers();
+        this.setupDrawingTool();
         this.bindControls();
         this.bindKeyboard();
 
@@ -71,7 +75,9 @@ class RetainingWallApp {
         });
 
         // Deselect on background click
-        this.svg.on('click', () => {
+        this.svg.on('click', (event) => {
+            // Don't deselect if drawing tool is active
+            if (this.drawingTool && this.drawingTool.isActive()) return;
             this.deselectAll();
         });
     }
@@ -104,6 +110,62 @@ class RetainingWallApp {
         this.layers.annotations = this.mainGroup.append('g').attr('class', 'layer-annotations');
     }
 
+    setupDrawingTool() {
+        this.drawingTool = new DrawingTool(this.coordSystem, this.svg, this.mainGroup, {
+            gridSnap: true,
+            gridSize: 0.1,
+            onComplete: (result) => this.handleDrawingComplete(result),
+            onCancel: () => this.updateDrawingUI(false),
+        });
+    }
+
+    handleDrawingComplete(result) {
+        this.updateDrawingUI(false);
+
+        if (result.vertices.length < 3) return;
+
+        // Determine type from options
+        const type = result.options.type || 'polygon';
+        let fillColor = '#90A4AE';
+        let name = 'Custom Shape';
+
+        if (type === 'wall') {
+            fillColor = '#78909C';
+            name = 'Custom Wall';
+        } else if (type === 'soil') {
+            fillColor = '#8D6E63';
+            name = 'Custom Soil';
+        }
+
+        const polygon = new CustomPolygon(this.coordSystem, this.layers.walls, {
+            vertices: result.vertices,
+            type,
+            fillColor,
+            name,
+            onSelect: (el) => this.selectElement(el),
+            onUpdate: () => this.updateDimensions(),
+        });
+
+        this.elements.push(polygon);
+        this.updateElementList();
+        this.selectElement(polygon);
+        this.updateDimensions();
+    }
+
+    updateDrawingUI(isDrawing) {
+        const buttons = document.querySelectorAll('.btn-draw');
+        buttons.forEach(btn => {
+            btn.classList.toggle('active', isDrawing);
+        });
+
+        // Update status
+        const statusText = isDrawing ? 'Drawing mode - Click to place vertices' : '';
+        const statusEl = document.getElementById('drawing-status');
+        if (statusEl) {
+            statusEl.textContent = statusText;
+        }
+    }
+
     bindControls() {
         // Add L-Wall button
         document.getElementById('add-lwall').addEventListener('click', () => {
@@ -119,6 +181,36 @@ class RetainingWallApp {
         document.getElementById('add-soil').addEventListener('click', () => {
             this.addSoilWedge();
         });
+
+        // Draw custom wall button
+        const drawWallBtn = document.getElementById('draw-wall');
+        if (drawWallBtn) {
+            drawWallBtn.addEventListener('click', () => {
+                this.deselectAll();
+                this.drawingTool.start('polygon', { type: 'wall' });
+                this.updateDrawingUI(true);
+            });
+        }
+
+        // Draw custom polygon button
+        const drawPolygonBtn = document.getElementById('draw-polygon');
+        if (drawPolygonBtn) {
+            drawPolygonBtn.addEventListener('click', () => {
+                this.deselectAll();
+                this.drawingTool.start('polygon', { type: 'polygon' });
+                this.updateDrawingUI(true);
+            });
+        }
+
+        // Draw custom soil button
+        const drawSoilBtn = document.getElementById('draw-soil');
+        if (drawSoilBtn) {
+            drawSoilBtn.addEventListener('click', () => {
+                this.deselectAll();
+                this.drawingTool.start('polygon', { type: 'soil' });
+                this.updateDrawingUI(true);
+            });
+        }
 
         // View toggles
         document.getElementById('show-grid').addEventListener('change', (e) => {
@@ -144,8 +236,11 @@ class RetainingWallApp {
 
     bindKeyboard() {
         document.addEventListener('keydown', (e) => {
+            // Don't handle if drawing tool is active (it has its own handlers)
+            if (this.drawingTool && this.drawingTool.isActive()) return;
+
             if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (this.selectedElement) {
+                if (this.selectedElement && !e.target.matches('input')) {
                     this.deleteElement(this.selectedElement);
                 }
             }
@@ -214,7 +309,9 @@ class RetainingWallApp {
 
     addSoilWedge(config = {}) {
         // Find the last wall to attach to
-        const walls = this.elements.filter(e => e instanceof LWall || e instanceof BlockWall);
+        const walls = this.elements.filter(e =>
+            e instanceof LWall || e instanceof BlockWall || e instanceof CustomPolygon
+        );
 
         let attachConfig = {};
         if (walls.length > 0) {
@@ -253,6 +350,21 @@ class RetainingWallApp {
         return soil;
     }
 
+    addCustomPolygon(config = {}) {
+        const polygon = new CustomPolygon(this.coordSystem, this.layers.walls, {
+            ...config,
+            onSelect: (el) => this.selectElement(el),
+            onUpdate: () => this.updateDimensions(),
+        });
+
+        this.elements.push(polygon);
+        this.updateElementList();
+        this.selectElement(polygon);
+        this.updateDimensions();
+
+        return polygon;
+    }
+
     selectElement(element) {
         this.deselectAll();
         this.selectedElement = element;
@@ -289,7 +401,13 @@ class RetainingWallApp {
             const li = document.createElement('li');
             li.className = el === this.selectedElement ? 'selected' : '';
 
-            const typeName = el.constructor.name.replace(/([A-Z])/g, ' $1').trim();
+            let typeName;
+            if (el instanceof CustomPolygon) {
+                typeName = el.params.name || 'Custom Shape';
+            } else {
+                typeName = el.constructor.name.replace(/([A-Z])/g, ' $1').trim();
+            }
+
             li.innerHTML = `
                 <span>${typeName} ${index + 1}</span>
                 <button class="delete-btn" data-index="${index}">&times;</button>
@@ -319,6 +437,17 @@ class RetainingWallApp {
         const params = element.getParams();
         const editableParams = this.getEditableParams(element);
 
+        // Add vertex info for custom polygons
+        if (element instanceof CustomPolygon) {
+            const vertexInfo = document.createElement('div');
+            vertexInfo.className = 'input-group vertex-info';
+            vertexInfo.innerHTML = `
+                <p><strong>Vertices:</strong> ${params.vertices.length}</p>
+                <p class="hint">Drag blue handles to edit vertices</p>
+            `;
+            inputs.appendChild(vertexInfo);
+        }
+
         editableParams.forEach(({ key, label, step, unit }) => {
             const value = params[key];
             if (typeof value === 'number') {
@@ -336,7 +465,7 @@ class RetainingWallApp {
                     element.updateParams({ [key]: newValue });
 
                     // Update soil if wall changed
-                    if (element instanceof LWall || element instanceof BlockWall) {
+                    if (element instanceof LWall || element instanceof BlockWall || element instanceof CustomPolygon) {
                         this.updateAttachedSoil(element);
                     }
                 });
@@ -390,6 +519,11 @@ class RetainingWallApp {
                 { key: 'soilExtent', label: 'Soil Extent', step: 0.5, unit: 'm' },
                 { key: 'showFailurePlane', label: 'Show Failure Plane' },
                 { key: 'showPressureDiagram', label: 'Show Pressure Diagram' },
+            ];
+        } else if (element instanceof CustomPolygon) {
+            return [
+                { key: 'fillOpacity', label: 'Fill Opacity', step: 0.1 },
+                { key: 'strokeWidth', label: 'Stroke Width', step: 0.5 },
             ];
         }
         return [];
@@ -465,6 +599,30 @@ class RetainingWallApp {
                     -0.3
                 ));
             }
+        });
+
+        // Add dimensions for custom polygons
+        const customPolygons = this.elements.filter(e => e instanceof CustomPolygon);
+        customPolygons.forEach(poly => {
+            const bounds = poly.getBounds();
+            // Width dimension
+            this.dimensions.push(createHorizontalDimension(
+                this.coordSystem,
+                this.layers.dimensions,
+                bounds.minY,
+                bounds.minX,
+                bounds.maxX,
+                -0.3
+            ));
+            // Height dimension
+            this.dimensions.push(createVerticalDimension(
+                this.coordSystem,
+                this.layers.dimensions,
+                bounds.minX,
+                bounds.minY,
+                bounds.maxY,
+                -0.4
+            ));
         });
     }
 

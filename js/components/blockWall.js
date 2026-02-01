@@ -1,6 +1,8 @@
 // Block Wall (Gravity/Segmental Retaining Wall) Component
 // Stacked blocks with setback
 
+import { VertexHandleManager } from './vertexHandle.js';
+
 export class BlockWall {
     constructor(coordSystem, elementsGroup, config = {}) {
         this.coordSystem = coordSystem;
@@ -28,7 +30,64 @@ export class BlockWall {
         this.onSelect = config.onSelect || (() => {});
         this.onUpdate = config.onUpdate || (() => {});
 
+        // Vertex editing - simplified control points for block wall
+        this.handleManager = new VertexHandleManager(coordSystem, elementsGroup);
+
         this.render();
+    }
+
+    // Get simplified control points (corners for easier manipulation)
+    getControlPoints() {
+        const p = this.params;
+        const totalHeight = p.numCourses * p.blockHeight;
+        const topSetback = (p.numCourses - 1) * p.setback;
+
+        return [
+            { x: p.originX, y: p.originY },                                    // 0: bottom-left
+            { x: p.originX + p.blockWidth, y: p.originY },                     // 1: bottom-right
+            { x: p.originX + topSetback + p.blockWidth, y: p.originY + totalHeight }, // 2: top-right
+            { x: p.originX + topSetback, y: p.originY + totalHeight },         // 3: top-left
+        ];
+    }
+
+    handleVertexDrag(index, pos, final) {
+        const p = this.params;
+        const totalHeight = p.numCourses * p.blockHeight;
+
+        switch (index) {
+            case 0: // bottom-left (origin)
+                p.originX = pos.x;
+                p.originY = pos.y;
+                break;
+            case 1: // bottom-right
+                p.blockWidth = pos.x - p.originX;
+                break;
+            case 2: // top-right
+                const newHeight = pos.y - p.originY;
+                p.numCourses = Math.max(1, Math.round(newHeight / p.blockHeight));
+                break;
+            case 3: // top-left
+                const newHeight2 = pos.y - p.originY;
+                p.numCourses = Math.max(1, Math.round(newHeight2 / p.blockHeight));
+                // Adjust setback based on horizontal position
+                const expectedX = p.originX + (p.numCourses - 1) * p.setback;
+                const diff = pos.x - expectedX;
+                if (p.numCourses > 1) {
+                    p.setback = Math.max(0, p.setback + diff / (p.numCourses - 1));
+                }
+                break;
+        }
+
+        // Clamp values
+        p.blockWidth = Math.max(0.2, p.blockWidth);
+        p.blockHeight = Math.max(0.1, p.blockHeight);
+        p.setback = Math.max(0, Math.min(p.setback, 0.1));
+        p.numCourses = Math.max(1, Math.min(p.numCourses, 30));
+
+        this.render();
+        if (final) {
+            this.onUpdate(this);
+        }
     }
 
     // Get array of block rectangles
@@ -175,16 +234,27 @@ export class BlockWall {
                 this.group.style('filter', 'none');
             });
 
+        // Setup vertex handles with control points
+        const controlPoints = this.getControlPoints();
+        this.handleManager.setVertices(controlPoints, (index, pos, final) => {
+            this.handleVertexDrag(index, pos, final);
+        });
+
         this.updateSelection();
     }
 
     setSelected(selected) {
         this.selected = selected;
         this.updateSelection();
+        this.handleManager.setVisible(selected);
     }
 
     updateSelection() {
         this.group.classed('selected', this.selected);
+    }
+
+    getVertices() {
+        return this.getControlPoints();
     }
 
     updateParams(newParams) {
@@ -206,6 +276,7 @@ export class BlockWall {
     }
 
     destroy() {
+        this.handleManager.destroy();
         if (this.group) {
             this.group.remove();
         }

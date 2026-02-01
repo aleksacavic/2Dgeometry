@@ -296,3 +296,105 @@ body {
     font-size: 0.8rem;
     color: #888;
 }
+
+/* Drawing tool buttons */
+.btn-outline {
+    background: transparent;
+    border: 2px solid #e94560;
+    color: #e94560;
+}
+
+.btn-outline:hover {
+    background: rgba(233, 69, 96, 0.1);
+}
+
+.btn-draw.active {
+    background: #4CAF50 !important;
+    border-color: #4CAF50 !important;
+    color: white !important;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(76, 175, 80, 0); }
+}
+
+.hint {
+    font-size: 0.75rem;
+    color: #666;
+    margin-top: 8px;
+    line-height: 1.4;
+}
+
+.vertex-info {
+    background: #0f3460;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+.vertex-info p {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.vertex-info .hint {
+    color: #888;
+    margin-top: 5px;
+}
+
+/* Vertex handles */
+.vertex-handle {
+    cursor: move;
+}
+
+.vertex-handle .vertex-point {
+    transition: r 0.15s, fill 0.15s;
+}
+
+.vertex-handle:hover .vertex-point {
+    r: 8;
+    fill: #FF5722 !important;
+}
+
+/* Drawing preview */
+.drawing-preview path {
+    pointer-events: none;
+}
+
+.drawing-preview circle {
+    pointer-events: none;
+}
+
+.drawing-preview text {
+    pointer-events: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* Custom polygon styles */
+.custom-polygon .polygon-fill {
+    transition: stroke 0.2s, stroke-width 0.2s;
+}
+
+.custom-polygon:hover .polygon-fill {
+    stroke-width: 3;
+}
+
+/* Soil wedge improvements */
+.soil-wedge.selected .soil-fill {
+    stroke: #2196F3;
+    stroke-width: 3;
+    stroke-dasharray: 5,3;
+}
+
+/* Selection highlight for all elements */
+.layer-walls .selected {
+    filter: drop-shadow(0 0 3px #2196F3);
+}
+
+/* Arrow markers for dimensions */
+svg defs marker path {
+    fill: #333;
+}

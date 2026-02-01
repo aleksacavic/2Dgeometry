@@ -12,12 +12,23 @@
             <h2>Retaining Wall Designer</h2>
 
             <section class="control-section">
-                <h3>Add Element</h3>
+                <h3>Add Preset</h3>
                 <div class="button-group">
                     <button id="add-lwall" class="btn btn-primary">+ L-Wall</button>
                     <button id="add-blockwall" class="btn btn-primary">+ Block Wall</button>
                     <button id="add-soil" class="btn btn-secondary">+ Soil Wedge</button>
                 </div>
+            </section>
+
+            <section class="control-section">
+                <h3>Draw Custom</h3>
+                <div class="button-group">
+                    <button id="draw-wall" class="btn btn-draw btn-primary">Draw Wall</button>
+                    <button id="draw-soil" class="btn btn-draw btn-secondary">Draw Soil</button>
+                    <button id="draw-polygon" class="btn btn-draw btn-outline">Draw Shape</button>
+                </div>
+                <p id="drawing-status" class="hint"></p>
+                <p class="hint">Click to place vertices. Enter to finish, Esc to cancel.</p>
             </section>
 
             <section class="control-section" id="element-properties" style="display: none;">
