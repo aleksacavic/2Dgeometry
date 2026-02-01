@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retaining Wall Designer</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <h2>Retaining Wall Designer</h2>
+
+            <section class="control-section">
+                <h3>Add Element</h3>
+                <div class="button-group">
+                    <button id="add-lwall" class="btn btn-primary">+ L-Wall</button>
+                    <button id="add-blockwall" class="btn btn-primary">+ Block Wall</button>
+                    <button id="add-soil" class="btn btn-secondary">+ Soil Wedge</button>
+                </div>
+            </section>
+
+            <section class="control-section" id="element-properties" style="display: none;">
+                <h3>Properties</h3>
+                <div id="property-inputs"></div>
+            </section>
+
+            <section class="control-section">
+                <h3>View Controls</h3>
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="show-grid" checked> Show Grid
+                    </label>
+                </div>
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="show-dimensions" checked> Show Dimensions
+                    </label>
+                </div>
+                <div class="input-group">
+                    <label>
+                        <input type="checkbox" id="show-coords" checked> Show Coordinates
+                    </label>
+                </div>
+                <button id="reset-view" class="btn btn-secondary">Reset View</button>
+            </section>
+
+            <section class="control-section">
+                <h3>Elements</h3>
+                <ul id="element-list" class="element-list"></ul>
+            </section>
+        </aside>
+
+        <main class="canvas-container">
+            <div id="drawing-area"></div>
+            <div class="status-bar">
+                <span id="cursor-coords">X: 0.00m, Y: 0.00m</span>
+                <span id="zoom-level">Zoom: 100%</span>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

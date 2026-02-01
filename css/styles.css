@@ -1,0 +1,298 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background: #16213e;
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid #0f3460;
+}
+
+.sidebar h2 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e94560;
+}
+
+.sidebar h3 {
+    font-size: 0.9rem;
+    color: #888;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.control-section {
+    margin-bottom: 25px;
+}
+
+/* Buttons */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
+    margin-bottom: 8px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #e94560;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #ff6b6b;
+}
+
+.btn-secondary {
+    background: #0f3460;
+    color: #eee;
+}
+
+.btn-secondary:hover {
+    background: #1a4a7a;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Inputs */
+.input-group {
+    margin-bottom: 12px;
+}
+
+.input-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.input-group input[type="number"],
+.input-group input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    color: #eee;
+    margin-top: 4px;
+}
+
+.input-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+}
+
+/* Element list */
+.element-list {
+    list-style: none;
+}
+
+.element-list li {
+    padding: 10px;
+    margin-bottom: 5px;
+    background: #0f3460;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.element-list li:hover {
+    background: #1a4a7a;
+}
+
+.element-list li.selected {
+    background: #e94560;
+}
+
+.element-list li .delete-btn {
+    background: transparent;
+    border: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 5px;
+}
+
+/* Canvas */
+.canvas-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #f5f5f5;
+}
+
+#drawing-area {
+    flex: 1;
+    overflow: hidden;
+}
+
+#drawing-area svg {
+    width: 100%;
+    height: 100%;
+    background: white;
+}
+
+/* SVG Styles */
+.grid-line {
+    stroke: #e0e0e0;
+    stroke-width: 0.5;
+}
+
+.grid-line-major {
+    stroke: #ccc;
+    stroke-width: 1;
+}
+
+.axis-line {
+    stroke: #333;
+    stroke-width: 1.5;
+}
+
+.axis-label {
+    font-size: 10px;
+    fill: #666;
+}
+
+.origin-marker {
+    fill: #e94560;
+}
+
+/* Element styles */
+.wall-element {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.wall-element:hover {
+    opacity: 0.85;
+}
+
+.wall-element.selected .wall-fill {
+    stroke: #e94560;
+    stroke-width: 3;
+    stroke-dasharray: 5,3;
+}
+
+.l-wall .wall-fill {
+    fill: #808080;
+    stroke: #404040;
+    stroke-width: 1.5;
+}
+
+.block-wall .wall-fill {
+    fill: #a0522d;
+    stroke: #654321;
+    stroke-width: 1;
+}
+
+.block-wall .block-line {
+    stroke: #654321;
+    stroke-width: 1;
+}
+
+.soil-wedge .soil-fill {
+    fill: url(#soil-pattern);
+    stroke: #8b7355;
+    stroke-width: 1.5;
+}
+
+.soil-wedge .failure-plane {
+    stroke: #e94560;
+    stroke-width: 2;
+    stroke-dasharray: 8,4;
+}
+
+/* Dimension lines */
+.dimension-line {
+    stroke: #333;
+    stroke-width: 1;
+}
+
+.dimension-text {
+    font-size: 11px;
+    fill: #333;
+    text-anchor: middle;
+}
+
+.dimension-tick {
+    stroke: #333;
+    stroke-width: 1;
+}
+
+/* Load arrows */
+.load-arrow {
+    fill: #e94560;
+    stroke: #b8304f;
+    stroke-width: 1;
+}
+
+.pressure-diagram {
+    fill: rgba(233, 69, 96, 0.3);
+    stroke: #e94560;
+    stroke-width: 1.5;
+}
+
+/* Tooltips */
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Status bar */
+.status-bar {
+    background: #16213e;
+    color: #eee;
+    padding: 8px 15px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-family: 'Courier New', monospace;
+}
+
+/* Property panel */
+#property-inputs .input-group label {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+#property-inputs .input-group span {
+    font-size: 0.8rem;
+    color: #888;
+}
