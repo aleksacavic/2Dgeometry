@@ -57,6 +57,38 @@
             </section>
 
             <section class="control-section">
+                <h3>Blender Bridge</h3>
+                <div class="blender-status" id="blender-status">
+                    <span class="status-dot disconnected"></span>
+                    <span>Disconnected</span>
+                </div>
+                <div class="input-group">
+                    <label>
+                        <span>Host:Port</span>
+                        <input type="text" id="blender-host" value="localhost:8765" placeholder="localhost:8765">
+                    </label>
+                </div>
+                <div class="button-group">
+                    <button id="blender-connect" class="btn btn-secondary">Connect</button>
+                    <button id="blender-refresh" class="btn btn-outline" disabled>Refresh</button>
+                </div>
+                <div id="blender-objects" class="blender-objects" style="display: none;">
+                    <label>
+                        <span>Object</span>
+                        <select id="blender-object-select"></select>
+                    </label>
+                    <div class="input-group">
+                        <label>
+                            <span>Cut Plane Y (m)</span>
+                            <input type="number" id="blender-cut-y" value="0" step="0.1">
+                        </label>
+                    </div>
+                    <button id="blender-get-section" class="btn btn-primary">Get Cross-Section</button>
+                </div>
+                <p class="hint">Connect to Blender addon to import 3D cross-sections</p>
+            </section>
+
+            <section class="control-section">
                 <h3>Elements</h3>
                 <ul id="element-list" class="element-list"></ul>
             </section>

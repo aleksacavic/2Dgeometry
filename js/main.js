@@ -8,6 +8,7 @@ import { SoilWedge } from './components/soilWedge.js';
 import { DimensionLine, createVerticalDimension, createHorizontalDimension } from './components/dimensionLine.js';
 import { CustomPolygon, createLShape } from './components/customPolygon.js';
 import { DrawingTool } from './components/drawingTool.js';
+import { BlenderBridge, BlenderCrossSection } from './components/blenderBridge.js';
 
 class RetainingWallApp {
     constructor() {
@@ -17,6 +18,8 @@ class RetainingWallApp {
         this.coordSystem = null;
         this.svg = null;
         this.drawingTool = null;
+        this.blenderBridge = null;
+        this.blenderObjects = [];
 
         // Layer groups (z-order)
         this.layers = {
@@ -34,6 +37,7 @@ class RetainingWallApp {
         this.setupCoordinateSystem();
         this.setupLayers();
         this.setupDrawingTool();
+        this.setupBlenderBridge();
         this.bindControls();
         this.bindKeyboard();
 
@@ -117,6 +121,164 @@ class RetainingWallApp {
             onComplete: (result) => this.handleDrawingComplete(result),
             onCancel: () => this.updateDrawingUI(false),
         });
+    }
+
+    setupBlenderBridge() {
+        this.blenderBridge = new BlenderBridge({
+            onConnect: () => this.updateBlenderStatus('connected'),
+            onDisconnect: () => this.updateBlenderStatus('disconnected'),
+            onError: (error) => {
+                console.error('Blender connection error:', error);
+                this.updateBlenderStatus('disconnected');
+            },
+            onCrossSection: (data) => this.handleBlenderCrossSection(data),
+            onObjectList: (objects) => this.updateBlenderObjectList(objects),
+        });
+
+        // Bind Blender UI controls
+        this.bindBlenderControls();
+    }
+
+    bindBlenderControls() {
+        const connectBtn = document.getElementById('blender-connect');
+        const refreshBtn = document.getElementById('blender-refresh');
+        const hostInput = document.getElementById('blender-host');
+        const getSectionBtn = document.getElementById('blender-get-section');
+        const objectSelect = document.getElementById('blender-object-select');
+        const cutYInput = document.getElementById('blender-cut-y');
+
+        if (connectBtn) {
+            connectBtn.addEventListener('click', async () => {
+                if (this.blenderBridge.isConnected()) {
+                    this.blenderBridge.disconnect();
+                    connectBtn.textContent = 'Connect';
+                } else {
+                    const hostPort = hostInput.value.split(':');
+                    this.blenderBridge.host = hostPort[0] || 'localhost';
+                    this.blenderBridge.port = parseInt(hostPort[1]) || 8765;
+
+                    this.updateBlenderStatus('connecting');
+                    try {
+                        await this.blenderBridge.connect();
+                        connectBtn.textContent = 'Disconnect';
+                        // Get object list on connect
+                        await this.blenderBridge.getObjects();
+                    } catch (error) {
+                        console.error('Failed to connect:', error);
+                        this.updateBlenderStatus('disconnected');
+                    }
+                }
+            });
+        }
+
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', async () => {
+                if (this.blenderBridge.isConnected()) {
+                    await this.blenderBridge.getObjects();
+                }
+            });
+        }
+
+        if (getSectionBtn) {
+            getSectionBtn.addEventListener('click', async () => {
+                if (!this.blenderBridge.isConnected()) return;
+
+                const objectName = objectSelect.value;
+                const cutY = parseFloat(cutYInput.value) || 0;
+
+                if (objectName) {
+                    await this.blenderBridge.getCrossSection(objectName, cutY, 'Y');
+                }
+            });
+        }
+    }
+
+    updateBlenderStatus(status) {
+        const statusEl = document.getElementById('blender-status');
+        const dot = statusEl.querySelector('.status-dot');
+        const text = statusEl.querySelector('span:last-child');
+        const refreshBtn = document.getElementById('blender-refresh');
+        const objectsDiv = document.getElementById('blender-objects');
+
+        dot.className = 'status-dot ' + status;
+
+        switch (status) {
+            case 'connected':
+                text.textContent = 'Connected';
+                refreshBtn.disabled = false;
+                objectsDiv.style.display = 'block';
+                break;
+            case 'connecting':
+                text.textContent = 'Connecting...';
+                refreshBtn.disabled = true;
+                break;
+            case 'disconnected':
+            default:
+                text.textContent = 'Disconnected';
+                refreshBtn.disabled = true;
+                objectsDiv.style.display = 'none';
+                break;
+        }
+    }
+
+    updateBlenderObjectList(objects) {
+        const select = document.getElementById('blender-object-select');
+        select.innerHTML = '';
+
+        this.blenderObjects = objects;
+
+        objects.forEach(obj => {
+            const option = document.createElement('option');
+            option.value = obj.name;
+            option.textContent = `${obj.name} (${obj.bounds ?
+                `${obj.bounds.size.x.toFixed(1)}x${obj.bounds.size.y.toFixed(1)}x${obj.bounds.size.z.toFixed(1)}` :
+                'unknown size'})`;
+            select.appendChild(option);
+        });
+
+        if (objects.length > 0) {
+            // Auto-update cut plane range based on first object
+            const obj = objects[0];
+            if (obj.bounds) {
+                const cutInput = document.getElementById('blender-cut-y');
+                cutInput.value = obj.bounds.center.y.toFixed(2);
+                cutInput.min = obj.bounds.min.y;
+                cutInput.max = obj.bounds.max.y;
+            }
+        }
+    }
+
+    handleBlenderCrossSection(data) {
+        if (!data.polygons || data.polygons.length === 0) {
+            console.warn('No cross-section data received');
+            return;
+        }
+
+        // Check if we already have a cross-section for this object
+        let existing = this.elements.find(el =>
+            el instanceof BlenderCrossSection && el.params.objectName === data.object
+        );
+
+        if (existing) {
+            existing.updateFromBlender(data);
+        } else {
+            // Create new cross-section element
+            const crossSection = new BlenderCrossSection(this.coordSystem, this.layers.walls, {
+                objectName: data.object,
+                polygons: data.polygons,
+                volume: data.volume,
+                bounds: data.bounds,
+                cutPosition: data.cut_position || data.plane_position,
+                onSelect: (el) => this.selectElement(el),
+                onUpdate: () => this.updateDimensions(),
+            });
+
+            this.elements.push(crossSection);
+            this.updateElementList();
+            this.selectElement(crossSection);
+        }
+
+        this.updateDimensions();
     }
 
     handleDrawingComplete(result) {
@@ -310,7 +472,7 @@ class RetainingWallApp {
     addSoilWedge(config = {}) {
         // Find the last wall to attach to
         const walls = this.elements.filter(e =>
-            e instanceof LWall || e instanceof BlockWall || e instanceof CustomPolygon
+            e instanceof LWall || e instanceof BlockWall || e instanceof CustomPolygon || e instanceof BlenderCrossSection
         );
 
         let attachConfig = {};
@@ -404,6 +566,8 @@ class RetainingWallApp {
             let typeName;
             if (el instanceof CustomPolygon) {
                 typeName = el.params.name || 'Custom Shape';
+            } else if (el instanceof BlenderCrossSection) {
+                typeName = `Blender: ${el.params.objectName}`;
             } else {
                 typeName = el.constructor.name.replace(/([A-Z])/g, ' $1').trim();
             }
@@ -446,6 +610,19 @@ class RetainingWallApp {
                 <p class="hint">Drag blue handles to edit vertices</p>
             `;
             inputs.appendChild(vertexInfo);
+        }
+
+        // Add Blender info
+        if (element instanceof BlenderCrossSection) {
+            const blenderInfo = document.createElement('div');
+            blenderInfo.className = 'input-group vertex-info';
+            blenderInfo.innerHTML = `
+                <p><strong>Object:</strong> ${params.objectName}</p>
+                <p><strong>Volume:</strong> ${params.volume.toFixed(3)} m³</p>
+                <p><strong>Cut Y:</strong> ${params.cutPosition.toFixed(2)} m</p>
+                <p><strong>Polygons:</strong> ${params.polygons.length}</p>
+            `;
+            inputs.appendChild(blenderInfo);
         }
 
         editableParams.forEach(({ key, label, step, unit }) => {
@@ -524,6 +701,13 @@ class RetainingWallApp {
             return [
                 { key: 'fillOpacity', label: 'Fill Opacity', step: 0.1 },
                 { key: 'strokeWidth', label: 'Stroke Width', step: 0.5 },
+            ];
+        } else if (element instanceof BlenderCrossSection) {
+            return [
+                { key: 'offsetX', label: 'Offset X', step: 0.1, unit: 'm' },
+                { key: 'offsetY', label: 'Offset Y', step: 0.1, unit: 'm' },
+                { key: 'scale', label: 'Scale', step: 0.1 },
+                { key: 'fillOpacity', label: 'Fill Opacity', step: 0.1 },
             ];
         }
         return [];
