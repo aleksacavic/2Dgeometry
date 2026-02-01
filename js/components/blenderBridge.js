@@ -37,11 +37,13 @@ export class BlenderBridge {
         return new Promise((resolve, reject) => {
             try {
                 this.ws = new WebSocket(this.getUrl());
+                let resolved = false;
 
                 this.ws.onopen = () => {
                     console.log('Connected to Blender');
                     this.connected = true;
                     this.reconnectAttempts = 0;
+                    resolved = true;
                     this.onConnect();
                     resolve();
                 };
@@ -50,19 +52,14 @@ export class BlenderBridge {
                     console.log('Disconnected from Blender');
                     this.connected = false;
                     this.onDisconnect();
-
-                    // Attempt reconnect
-                    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-                        this.reconnectAttempts++;
-                        console.log(`Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}...`);
-                        setTimeout(() => this.connect(), this.reconnectDelay);
-                    }
                 };
 
                 this.ws.onerror = (error) => {
-                    console.error('WebSocket error:', error);
+                    this.connected = false;
                     this.onError(error);
-                    reject(error);
+                    if (!resolved) {
+                        reject(new Error('Failed to connect to Blender. Make sure the addon is running.'));
+                    }
                 };
 
                 this.ws.onmessage = (event) => {
